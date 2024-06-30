@@ -316,7 +316,7 @@ void process_input()
         instream_type = instream.substr(0, 5); // get type if it is a UNIX domain socket
     }
 
-    if (instream_type != "TCPS" && instream_type != "TCPC" && instream_type != "UDPS" && instream_type != "UDSSS" && instream_type != "UDSDS")
+    if (instream_type != "TCPS" && instream_type != "TCPC" && instream_type != "UDPS" && instream_type != "UDSSS" && instream_type != "UDSSD")
     {
         cerr << "Invalid input stream type" << endl;
         exit(1);

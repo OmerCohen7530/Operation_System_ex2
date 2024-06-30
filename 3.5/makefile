@@ -14,7 +14,5 @@ ttt: tic_tac_toe.cpp
 clean:
 	rm -f mync ttt
 
-
 # ./mync -b TCPS4050
 # ./mync -b TCPClocalhost,4050
-

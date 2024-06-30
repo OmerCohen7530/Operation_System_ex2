@@ -14,10 +14,18 @@ ttt: tic_tac_toe.cpp
 clean:
 	rm -f mync ttt
 
-# ./mync -e "ttt 123456789" -i UDSSD/tmp/mysocket
+## UDSSD:
+# ./mync -e "ttt 123456789" -i UDSSDuria
+# nc -u -U uria
 
-# ./mync -o UDSCD/tmp/mysocket
+# UDSCD:
+# socat - UNIX-RECVFROM:blue,fork
+# ./mync -e "ttt 123456789" -o UDSCDblue
 
-# ./mync-e "ttt 123456789" -i UDSSS/tmp/mysocket
+## UDSSS:
+# ./mync -e "ttt 123456789" -i UDSSSomer
+# socat - UNIX-CONNECT:omer
 
-# ./mync -o UDSCS/tmp/mysocket
+## UDSCS:
+# nc -l -U green
+# ./mync -e "ttt 123456789" -o UDSCSgreen
