@@ -9,7 +9,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <netdb.h>
-
+#include <fcntl.h>
 using namespace std;
 
 // global variables
@@ -140,7 +140,6 @@ int UDPS()
     return sockfd;
 }
 
-
 void process_output()
 {
     if (out_fd != STDOUT_FILENO)
@@ -151,7 +150,6 @@ void process_output()
 
     string outstream_type = outstream.substr(0, 4);
     // check format is "TCPS[Port] , TCPC[IP],[Port] , UDPC[IP],[Port]"
-   
 
     if (outstream_type != "TCPS" && outstream_type != "TCPC" && outstream_type != "UDPC")
     {
@@ -190,7 +188,7 @@ void process_input()
     }
     string instream_type = instream.substr(0, 4); // get type
     // check format is "TCPS[Port] , TCPC[IP],[Port] , UDPC[IP],[Port]"
-  
+
     if (instream_type != "TCPS" && instream_type != "TCPC" && instream_type != "UDPS")
     {
         cerr << "Invalid input stream type" << endl;
@@ -217,7 +215,6 @@ void process_input()
         port = stoi(instream.substr(instream.find(",") + 1)); // get port
         in_fd = TCPC();
     }
-
 }
 
 void process_command()
@@ -374,6 +371,19 @@ int main(int argc, char const *argv[])
 
     else
     {
+        // set file descriptors to non-blocking
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(in_fd, F_GETFL, 0);
+        fcntl(in_fd, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(STDOUT_FILENO, F_GETFL, 0);
+        fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(out_fd, F_GETFL, 0);
+        fcntl(out_fd, F_SETFL, flags | O_NONBLOCK);
+
         while (1)
         {
             char buffer[1024];
@@ -381,36 +391,58 @@ int main(int argc, char const *argv[])
             {
                 int n = read(in_fd, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(STDOUT_FILENO, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(STDOUT_FILENO, buffer, n);
             }
 
             if (out_fd != STDOUT_FILENO)
             {
                 int n = read(STDIN_FILENO, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(out_fd, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(out_fd, buffer, n);
             }
         }
     }

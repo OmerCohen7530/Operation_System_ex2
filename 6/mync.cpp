@@ -9,7 +9,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <netdb.h>
-
+#include <fcntl.h>
 using namespace std;
 
 // global variables
@@ -140,7 +140,7 @@ int UDPS()
     return sockfd;
 }
 
-int UDSDC()
+int UDSCD()
 {
     int sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sockfd < 0)
@@ -162,7 +162,7 @@ int UDSDC()
     return sockfd;
 }
 
-int UDSDS()
+int UDSSD()
 {
     int sockfd = socket(AF_UNIX, SOCK_DGRAM, 0);
     if (sockfd < 0)
@@ -184,7 +184,7 @@ int UDSDS()
     return sockfd;
 }
 
-int UDSSC()
+int UDSCS()
 {
     int sockfd = socket(AF_UNIX, SOCK_STREAM, 0);
     if (sockfd < 0)
@@ -255,12 +255,12 @@ void process_output()
     string outstream_type = outstream.substr(0, 4);
     // check format is "TCPS[Port] , TCPC[IP],[Port] , UDPC[IP],[Port], UDSSC[Path] , UDSDC[Path]"
     // if check 4 first characters are "UDSD" or "UDSS" then it is a UNIX domain socket
-    if ((outstream_type == "UDSD" || outstream_type == "UDSS"))
+    if (outstream_type == "UDSC")
     {
         outstream_type = outstream.substr(0, 5);
     }
 
-    if (outstream_type != "TCPS" && outstream_type != "TCPC" && outstream_type != "UDPC" && outstream_type != "UDSSC" && outstream_type != "UDSDC")
+    if (outstream_type != "TCPS" && outstream_type != "TCPC" && outstream_type != "UDPC" && outstream_type != "UDSCS" && outstream_type != "UDSCD")
     {
         cerr << "Invalid output stream type" << endl;
         exit(1);
@@ -287,16 +287,16 @@ void process_output()
         }
     }
 
-    if (outstream_type == "UDSSC" || outstream_type == "UDSDC")
+    if (outstream_type == "UDSCS" || outstream_type == "UDSCD")
     {
         path = outstream.substr(5);
-        if (outstream_type == "UDSSC")
+        if (outstream_type == "UDSCS")
         {
-            out_fd = UDSSC();
+            out_fd = UDSCS();
         }
         else
         {
-            out_fd = UDSDC();
+            out_fd = UDSCD();
         }
     }
 }
@@ -311,7 +311,7 @@ void process_input()
     string instream_type = instream.substr(0, 4); // get type
     // check format is "TCPS[Port] , TCPC[IP],[Port] , UDPC[IP],[Port], UDSSC[Path] , UDSDC[Path]"
     // if check 4 first characters are "UDSD" or "UDSS" then it is a UNIX domain socket
-    if ((instream_type == "UDSD" || instream_type == "UDSS"))
+    if (instream_type == "UDSS")
     {
         instream_type = instream.substr(0, 5); // get type if it is a UNIX domain socket
     }
@@ -343,7 +343,7 @@ void process_input()
         in_fd = TCPC();
     }
 
-    if (instream_type == "UDSSS" || instream_type == "UDSDS")
+    if (instream_type == "UDSSS" || instream_type == "UDSSD")
     {
         path = instream.substr(5); // get path
         if (instream_type == "UDSSS")
@@ -352,7 +352,7 @@ void process_input()
         }
         else
         {
-            in_fd = UDSDS();
+            in_fd = UDSSD();
         }
     }
 }
@@ -511,6 +511,19 @@ int main(int argc, char const *argv[])
 
     else
     {
+        // set file descriptors to non-blocking
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(in_fd, F_GETFL, 0);
+        fcntl(in_fd, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(STDOUT_FILENO, F_GETFL, 0);
+        fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(out_fd, F_GETFL, 0);
+        fcntl(out_fd, F_SETFL, flags | O_NONBLOCK);
+
         while (1)
         {
             char buffer[1024];
@@ -518,38 +531,61 @@ int main(int argc, char const *argv[])
             {
                 int n = read(in_fd, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(STDOUT_FILENO, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(STDOUT_FILENO, buffer, n);
             }
 
             if (out_fd != STDOUT_FILENO)
             {
                 int n = read(STDIN_FILENO, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(out_fd, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(out_fd, buffer, n);
             }
         }
     }
+    
     return 0;
 }

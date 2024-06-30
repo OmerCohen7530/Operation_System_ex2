@@ -14,7 +14,12 @@ mync: mync.cpp
 clean:
 	rm -f ttt mync
 
-# nc localhost 4050
+# ./mync -e "ttt 123456789" -i TCPS4061
+# nc localhost 4061
+
+# ./mync -e "ttt 123456789" -b TCPS4062
+# nc localhost 4062
+
 
 # nc -l 4455
 # ./mync -e "ttt 123456789" -i TCPS4050 -o TCPClocalhost,4455

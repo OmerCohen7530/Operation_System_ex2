@@ -9,6 +9,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 #include <netdb.h>
+#include <fcntl.h>
 
 using namespace std;
 
@@ -34,7 +35,6 @@ void resolve_host()
     }
     ip = inet_ntoa(*((struct in_addr *)host->h_addr_list[0]));
 }
-
 int TCPC()
 {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -288,6 +288,19 @@ int main(int argc, char const *argv[])
 
     else
     {
+        // set file descriptors to non-blocking
+        int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(in_fd, F_GETFL, 0);
+        fcntl(in_fd, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(STDOUT_FILENO, F_GETFL, 0);
+        fcntl(STDOUT_FILENO, F_SETFL, flags | O_NONBLOCK);
+
+        flags = fcntl(out_fd, F_GETFL, 0);
+        fcntl(out_fd, F_SETFL, flags | O_NONBLOCK);
+
         while (1)
         {
             char buffer[1024];
@@ -295,36 +308,58 @@ int main(int argc, char const *argv[])
             {
                 int n = read(in_fd, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(STDOUT_FILENO, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(STDOUT_FILENO, buffer, n);
             }
 
             if (out_fd != STDOUT_FILENO)
             {
                 int n = read(STDIN_FILENO, buffer, 1024);
 
-                if (n == 0)
+                if (n < 0)
                 {
+                    if (errno != EWOULDBLOCK)
+                    {
+                        cerr << "Failed to read from input stream" << endl;
+                        close(in_fd);
+                        close(out_fd);
+                        exit(1);
+                    }
+                }
+
+                else if (n == 0)
+                {
+                    close(in_fd);
+                    close(out_fd);
                     break;
                 }
 
-                if (n < 0)
+                else
                 {
-                    cerr << "Failed to read from input stream" << endl;
-                    exit(1);
+                    write(out_fd, buffer, n);
+                    fflush(stdout);
                 }
-
-                write(out_fd, buffer, n);
             }
         }
     }

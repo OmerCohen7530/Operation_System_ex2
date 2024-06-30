@@ -13,3 +13,11 @@ ttt: tic_tac_toe.cpp
 
 clean:
 	rm -f mync ttt
+
+# ./mync -e "ttt 123456789" -i UDSSD/tmp/mysocket
+
+# ./mync -o UDSCD/tmp/mysocket
+
+# ./mync-e "ttt 123456789" -i UDSSS/tmp/mysocket
+
+# ./mync -o UDSCS/tmp/mysocket
