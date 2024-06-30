@@ -13,3 +13,5 @@ mync: mync.cpp
 
 clean:
 	rm -f ttt mync
+
+# ./mync -e "ttt 123456789"

@@ -34,6 +34,7 @@ void resolve_host()
     }
     ip = inet_ntoa(*((struct in_addr *)host->h_addr_list[0]));
 }
+
 int TCPC()
 {
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);

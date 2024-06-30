@@ -13,3 +13,11 @@ ttt: tic_tac_toe.cpp
 
 clean:
 	rm -f mync ttt
+
+# ./mync -e "ttt 123456789" -i UDPS4050 -t 10
+# ./mync -o UDPClocalhost,4050
+
+
+# ./mync -o UDPClocalhost,4058
+# ./mync -i TCPS4459
+# ./mync -e "ttt 123456789" -i UDPS4058 -o TCPClocalhost,4459
